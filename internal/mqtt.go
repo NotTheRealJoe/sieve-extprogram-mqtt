@@ -1,6 +1,8 @@
 package internal
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"math/rand"
 
@@ -17,6 +19,16 @@ func randString(length uint) string {
 	return string(b)
 }
 
+func newTLSConfig() (*tls.Config, error) {
+	certPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		RootCAs: certPool,
+	}, nil
+}
+
 func MQTTSetup(config Config) (*mqtt.Client, error) {
 	// TODO: Automatically try reconnecting
 	var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
@@ -25,7 +37,20 @@ func MQTTSetup(config Config) (*mqtt.Client, error) {
 	}
 
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%d", config.Broker, config.Port))
+	var broker string
+	if config.UseSSL {
+		broker = fmt.Sprintf("ssl://%s:%d", config.Broker, config.Port)
+		tlsConfig, err := newTLSConfig()
+		if err != nil {
+			panic(err)
+		}
+		opts.SetTLSConfig(tlsConfig)
+	} else {
+		broker = fmt.Sprintf("tcp://%s:%d", config.Broker, config.Port)
+	}
+	opts.SetUsername(config.Username)
+	opts.SetPassword(config.Password)
+	opts.AddBroker(broker)
 	opts.SetClientID("sieve-extprogram-mqtt-" + randString(6))
 	opts.OnConnectionLost = connectLostHandler
 

@@ -5,4 +5,7 @@ type Config struct {
 	Port           uint   `json:"port"`
 	ClientIDPrefix string `json:"clientIdPrefix"`
 	Topic          string `json:"topic"`
+	UseSSL         bool   `json:"useSSL"`
+	Username       string `json:"username"`
+	Password       string `json:"password"`
 }
