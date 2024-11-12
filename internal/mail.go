@@ -13,8 +13,8 @@ import (
 )
 
 type Email struct {
-	Headers   map[string]string
-	BodyParts map[string]string
+	Headers   map[string]string `json:"headers"`
+	BodyParts map[string]string `json:"bodyParts"`
 }
 
 func ReadEmail(reader io.Reader) (*Email, error) {
