@@ -43,7 +43,7 @@ func ReadEmail(reader io.Reader) (*Email, error) {
 		// Parse as a multipart message
 		email.BodyParts, err = readMultipartEmail(msg, params)
 	} else {
-		email.BodyParts, err = readSinglePartEmail(msg)
+		email.BodyParts, err = readSinglePartEmail(msg, mediaType)
 	}
 
 	return &email, err
@@ -90,7 +90,7 @@ func readMultipartEmail(msg *mail.Message, mediaTypeParams map[string]string) (m
 	return bodyParts, nil
 }
 
-func readSinglePartEmail(msg *mail.Message) (map[string]string, error) {
+func readSinglePartEmail(msg *mail.Message, mediaType string) (map[string]string, error) {
 	var decodedBody bytes.Buffer
 	if msg.Header.Get("Content-Transfer-Encoding") == "quoted-printable" {
 		qpReader := quotedprintable.NewReader(msg.Body)
@@ -104,6 +104,6 @@ func readSinglePartEmail(msg *mail.Message) (map[string]string, error) {
 	}
 
 	return map[string]string{
-		"text/plain": decodedBody.String(),
+		mediaType: decodedBody.String(),
 	}, nil
 }
