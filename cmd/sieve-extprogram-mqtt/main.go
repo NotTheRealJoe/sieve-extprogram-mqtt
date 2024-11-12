@@ -48,9 +48,5 @@ func main() {
 	}
 	json, err := json.Marshal(email)
 
-	dest, _ := os.Create("./sampleout.json")
-	defer dest.Close()
-	dest.Write(json)
-
 	internal.MQTTPublish(*client, config.Topic, json)
 }
