@@ -35,14 +35,28 @@ func ReadEmail(reader io.Reader) (*Email, error) {
 
 	contentType := msg.Header.Get("Content-Type")
 	mediaType, params, err := mime.ParseMediaType(contentType)
-	if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+	if err != nil {
 		return nil, fmt.Errorf("Invalid MIME type: %v", err)
 	}
-	if _, ok := params["boundary"]; !ok {
+
+	if strings.HasPrefix(mediaType, "multipart/") {
+		// Parse as a multipart message
+		email.BodyParts, err = readMultipartEmail(msg, params)
+	} else {
+		email.BodyParts, err = readSinglePartEmail(msg)
+	}
+
+	return &email, err
+}
+
+func readMultipartEmail(msg *mail.Message, mediaTypeParams map[string]string) (map[string]string, error) {
+	if _, ok := mediaTypeParams["boundary"]; !ok {
 		return nil, fmt.Errorf("Boundary for multipart not found in content-type parameters")
 	}
 
-	multipartReader := multipart.NewReader(msg.Body, params["boundary"])
+	multipartReader := multipart.NewReader(msg.Body, mediaTypeParams["boundary"])
+
+	bodyParts := make(map[string]string)
 
 	for {
 		part, err := multipartReader.NextPart()
@@ -70,8 +84,26 @@ func ReadEmail(reader io.Reader) (*Email, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse part's content-type header: %v", err)
 		}
-		email.BodyParts[partMediaType] = decodedPart.String()
+		bodyParts[partMediaType] = decodedPart.String()
 	}
 
-	return &email, nil
+	return bodyParts, nil
+}
+
+func readSinglePartEmail(msg *mail.Message) (map[string]string, error) {
+	var decodedBody bytes.Buffer
+	if msg.Header.Get("Content-Transfer-Encoding") == "quoted-printable" {
+		qpReader := quotedprintable.NewReader(msg.Body)
+		if _, err := io.Copy(&decodedBody, qpReader); err != nil {
+			return nil, fmt.Errorf("error decoding quoted-printable body: %v", err)
+		}
+	} else {
+		if _, err := io.Copy(&decodedBody, msg.Body); err != nil {
+			return nil, fmt.Errorf("error reading body: %v", err)
+		}
+	}
+
+	return map[string]string{
+		"text/plain": decodedBody.String(),
+	}, nil
 }
